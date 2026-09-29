@@ -9,6 +9,7 @@ import { NAKSHATRAS, PLANET_HI, SIGNS, SIGN_ELEMENT, type Chart } from "@/lib/as
 import { HOUSE_MEANING, LAGNA_TEXT, MOON_TEXT, PLANET_INFO } from "@/lib/astro/knowledge";
 import type { Analysis } from "@/lib/astro/interpret";
 import UnlockButton from "./UnlockButton";
+import Photo from "./Photo";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_NAME || "Vidya Jyotish";
 
@@ -44,7 +45,7 @@ const PAGES: ((c: Ctx) => React.ReactNode)[] = [
       <h3 style={{ letterSpacing: ".2em", textTransform: "uppercase", fontSize: ".9rem" }}>{SITE}</h3>
       <h1 style={{ fontSize: "2.8rem" }}>Career Guidance Report</h1>
       <p style={{ color: "#d9d2ff" }}>Based on Vedic Astrology, Prashna Kundali, Palmistry & Face Reading</p>
-      {s.photos.facePhoto && <img src={s.photos.facePhoto} alt="" style={{ width: 140, height: 140, borderRadius: "50%", objectFit: "cover", border: "5px solid #ffd23f", margin: "24px 0" }} />}
+      <Photo photo={s.photos.facePhoto} style={{ width: 140, height: 140, borderRadius: "50%", objectFit: "cover", border: "5px solid #ffd23f", margin: "24px 0" }} />
       <h2 style={{ fontSize: "2rem" }}>{s.fullName}</h2>
       <p style={{ color: "#d9d2ff" }}>{s.currentClass} · Born {s.dateOfBirth} · {s.birthPlace}</p>
       <p style={{ color: "#ffd23f", fontWeight: 700 }}>{a.lagnaSign} Lagna · {a.moonSign} Moon</p>
@@ -413,7 +414,7 @@ const PAGES: ((c: Ctx) => React.ReactNode)[] = [
     <>
       <div className="photo-grid mb-2">
         {PHOTO_FIELDS.filter((p) => p.key !== "facePhoto").map((p) => (
-          <figure key={p.key}>{s.photos[p.key] ? <img src={s.photos[p.key]} alt={p.label} /> : null}<figcaption>{p.label}</figcaption></figure>
+          <figure key={p.key}><Photo photo={s.photos[p.key]} alt={p.label} /><figcaption>{p.label}</figcaption></figure>
         ))}
       </div>
       <p className="small muted">In palmistry, the right hand usually shows active development and the left hand inborn potential. The astrologer studies the Head line, Heart line, Life line, Fate line, Sun line, the mounts, finger shapes and nails.</p>
@@ -424,7 +425,7 @@ const PAGES: ((c: Ctx) => React.ReactNode)[] = [
   ({ s }) => (
     <>
       <div className="flex" style={{ alignItems: "flex-start", gap: 24 }}>
-        {s.photos.facePhoto && <img src={s.photos.facePhoto} alt="" style={{ width: 160, height: 200, objectFit: "cover", borderRadius: 12 }} />}
+        <Photo photo={s.photos.facePhoto} style={{ width: 160, height: 200, objectFit: "cover", borderRadius: 12 }} />
         <div style={{ flex: 1 }}>
           <h3 className="mt-0">Face reading (Samudrika Shastra)</h3>
           {s.caseStudy?.faceReadingNotes ? lines(s.caseStudy.faceReadingNotes) : <Pending what="Face-reading notes" />}

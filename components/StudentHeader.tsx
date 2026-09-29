@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ageOf, type Student } from "@/lib/store";
 import { isPaid, planOf } from "@/lib/plans";
+import Photo from "./Photo";
 
 export default function StudentHeader({ s }: { s: Student }) {
   const path = usePathname();
@@ -19,11 +20,10 @@ export default function StudentHeader({ s }: { s: Student }) {
       <section className="page-head no-print">
         <div className="container flex flex-wrap between">
           <div className="flex">
-            {s.photos.facePhoto ? (
-              <img src={s.photos.facePhoto} alt="" className="student-photo" style={{ width: 76, height: 76, border: "3px solid #ffffff55" }} />
-            ) : (
-              <div className="student-photo" style={{ width: 76, height: 76 }}>🧒</div>
-            )}
+            <Photo
+              photo={s.photos.facePhoto} className="student-photo" style={{ width: 76, height: 76, border: "3px solid #ffffff55" }}
+              fallback={<div className="student-photo" style={{ width: 76, height: 76 }}>🧒</div>}
+            />
             <div>
               <h1>{s.fullName}</h1>
               <p>{s.currentClass} · Age {ageOf(s.dateOfBirth)} · Born {s.dateOfBirth}, {s.birthPlace}</p>

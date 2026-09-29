@@ -7,6 +7,7 @@
 import { useSyncExternalStore } from "react";
 import { isPaid, planOf, type PlanId } from "./plans";
 import { castPrashna, type PrashnaCategory, type PrashnaReading } from "./astro/prashna";
+import { PHOTO_REF_PREFIX, allPhotoIds, blobToDataUrl, clearAllPhotos, dataUrlToBlob, deletePhotos, getPhotoBlob, putPhoto } from "./photoStore";
 
 export type Role = "PARENT" | "ADMIN";
 export type User = { id: string; name: string; email: string; phone: string; password: string; role: Role; createdAt: string };
@@ -70,7 +71,7 @@ export type Student = {
   achievements: string;
   parentGoals: string;
   healthNotes: string;
-  photos: Partial<Record<PhotoKey, string>>; // compressed data URLs
+  photos: Partial<Record<PhotoKey, string>>; // "idb:<id>" references to photos kept in IndexedDB
   plan: PlanId;
   status: StudentStatus;
   payments: Payment[];
@@ -108,17 +109,44 @@ function load(): DB {
   } catch {
     cache = seed({ users: [], students: [], currentUserId: null });
   }
+  void migrateLegacyPhotos();
   return cache;
 }
 
+/** Writes to storage FIRST; the in-memory copy only changes if the write succeeded. */
 function save(next: DB) {
-  cache = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
-    throw new Error("Browser storage is full. Please remove an old profile or use smaller photos.");
+    throw new Error("Browser storage is full, so this could not be saved. Go to My Profile → Data & storage to free up space.");
   }
+  cache = next;
   listeners.forEach((l) => l());
+}
+
+/** Old versions stored photos inside localStorage as data: URLs. Move them to IndexedDB once. */
+let migrating = false;
+async function migrateLegacyPhotos() {
+  if (migrating || typeof window === "undefined" || !cache) return;
+  const legacy = cache.students.flatMap((s) =>
+    Object.entries(s.photos).filter(([, v]) => v?.startsWith("data:")).map(([k, v]) => ({ id: s.id, k, v: v! })),
+  );
+  if (!legacy.length) return;
+  migrating = true;
+  try {
+    const moved: { id: string; k: string; ref: string }[] = [];
+    for (const p of legacy) moved.push({ id: p.id, k: p.k, ref: await putPhoto(await dataUrlToBlob(p.v)) });
+    mutate((db) => {
+      for (const m of moved) {
+        const s = db.students.find((x) => x.id === m.id);
+        if (s) s.photos[m.k as PhotoKey] = m.ref;
+      }
+    });
+  } catch {
+    // Leave the old photos in place; they still display.
+  } finally {
+    migrating = false;
+  }
 }
 
 function mutate(fn: (db: DB) => void) {
@@ -201,14 +229,22 @@ export function addStudent(parentId: string, data: NewStudent) {
 }
 
 export function updateStudent(id: string, patch: Partial<Student>) {
+  const before = load().students.find((x) => x.id === id);
   mutate((db) => {
     const s = db.students.find((x) => x.id === id);
     if (s) Object.assign(s, patch);
   });
+  // Remove photos that were replaced.
+  if (before && patch.photos) {
+    const kept = new Set(Object.values(patch.photos));
+    void deletePhotos(Object.values(before.photos).filter((r) => r && !kept.has(r)));
+  }
 }
 
 export function deleteStudent(id: string) {
-  mutate((db) => { db.students = db.students.filter((s) => s.id !== id); });
+  const s = load().students.find((x) => x.id === id);
+  mutate((db) => { db.students = db.students.filter((x) => x.id !== id); });
+  if (s) void deletePhotos(Object.values(s.photos));
 }
 
 /** Demo payment. Replace with a Razorpay/Stripe checkout when the backend exists. */
@@ -327,11 +363,11 @@ export function updateSession(studentId: string, sid: string, patch: Partial<Ses
   });
 }
 
-/** Compress an image in the browser so it fits in local storage (~100–200 KB each). */
-export function compressImage(file: File, maxSide = 900, quality = 0.78): Promise<string> {
+/** Compresses a photo in the browser (max 1200 px, JPEG) so reports load fast. */
+export function compressImage(file: File, maxSide = 1200, quality = 0.82): Promise<Blob> {
   return new Promise((resolve, reject) => {
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return reject(new Error("Please choose a JPG, PNG or WEBP photo"));
-    if (file.size > 12 * 1024 * 1024) return reject(new Error("Photo must be smaller than 12 MB"));
+    if (file.size > 15 * 1024 * 1024) return reject(new Error("Photo must be smaller than 15 MB"));
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
@@ -341,11 +377,97 @@ export function compressImage(file: File, maxSide = 900, quality = 0.78): Promis
       canvas.height = Math.round(img.height * scale);
       canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", quality));
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not process this image"))), "image/jpeg", quality);
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read this image")); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read this image. Please try another photo.")); };
     img.src = url;
   });
+}
+
+/** Compresses and stores an uploaded photo; returns its reference. */
+export async function saveUploadedPhoto(file: File): Promise<string> {
+  return putPhoto(await compressImage(file));
+}
+
+// ---------------- Form drafts (so a refresh never loses what was typed) ----------------
+const draftKey = (userId: string, studentId = "new") => `vj_draft_${userId}_${studentId}`;
+
+export function loadDraft<T>(userId: string, studentId?: string): T | null {
+  try {
+    const raw = localStorage.getItem(draftKey(userId, studentId));
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveDraft(userId: string, data: unknown, studentId?: string) {
+  try { localStorage.setItem(draftKey(userId, studentId), JSON.stringify(data)); } catch {}
+}
+
+export function clearDraft(userId: string, studentId?: string) {
+  try { localStorage.removeItem(draftKey(userId, studentId)); } catch {}
+}
+
+// ---------------- Data management (backup / restore / reset) ----------------
+function draftPhotoRefs() {
+  return Object.keys(localStorage).filter((k) => k.startsWith("vj_draft_")).flatMap((k) => {
+    try { return Object.values((JSON.parse(localStorage.getItem(k) || "{}").photos ?? {}) as Record<string, string>); } catch { return []; }
+  });
+}
+
+export async function storageUsage() {
+  const localBytes = (localStorage.getItem(KEY) || "").length * 2;
+  const used = new Set([...load().students.flatMap((s) => Object.values(s.photos)), ...draftPhotoRefs()]);
+  const ids = await allPhotoIds();
+  let quota: number | undefined, usage: number | undefined;
+  try { const e = await navigator.storage.estimate(); quota = e.quota; usage = e.usage; } catch {}
+  return { localBytes, photos: ids.length, unusedPhotos: ids.filter((i) => !used.has(i)).length, quota, usage };
+}
+
+/** Deletes photos not linked to any child or open form (e.g. replaced or abandoned uploads). */
+export async function cleanUnusedPhotos() {
+  const used = new Set([...load().students.flatMap((s) => Object.values(s.photos)), ...draftPhotoRefs()]);
+  const unused = (await allPhotoIds()).filter((i) => !used.has(i));
+  await deletePhotos(unused);
+  return unused.length;
+}
+
+/** A single JSON file with all accounts, children and photos. */
+export async function exportBackup() {
+  const db = structuredClone(load());
+  for (const s of db.students) {
+    for (const [k, ref] of Object.entries(s.photos)) {
+      if (ref?.startsWith(PHOTO_REF_PREFIX)) {
+        const b = await getPhotoBlob(ref);
+        s.photos[k as PhotoKey] = b ? await blobToDataUrl(b) : undefined;
+      }
+    }
+  }
+  return JSON.stringify({ app: "vidya-jyotish", version: 1, exportedAt: new Date().toISOString(), db });
+}
+
+export async function importBackup(json: string) {
+  let parsed: { app?: string; db?: DB };
+  try { parsed = JSON.parse(json); } catch { throw new Error("This is not a valid backup file"); }
+  if (parsed.app !== "vidya-jyotish" || !parsed.db?.users || !parsed.db?.students) throw new Error("This is not a Vidya Jyotish backup file");
+  const db = parsed.db;
+  for (const s of db.students) {
+    for (const [k, v] of Object.entries(s.photos)) {
+      if (v?.startsWith("data:")) s.photos[k as PhotoKey] = await putPhoto(await dataUrlToBlob(v));
+    }
+  }
+  const current = load().currentUserId;
+  save(seed({ ...db, currentUserId: db.users.some((u) => u.id === current) ? current : null }));
+  return { users: db.users.length, students: db.students.length };
+}
+
+/** Removes every account, child, photo and draft from this browser. */
+export async function resetAllData() {
+  Object.keys(localStorage).filter((k) => k.startsWith("vj_")).forEach((k) => localStorage.removeItem(k));
+  await clearAllPhotos();
+  cache = null;
+  listeners.forEach((l) => l());
 }
 
 export const STATUS_LABEL: Record<StudentStatus, string> = {

@@ -11,12 +11,15 @@ import { useChart } from "@/lib/useChart";
 import { isPaid, planOf } from "@/lib/plans";
 import { NAKSHATRAS, PLANET_HI } from "@/lib/astro/engine";
 import UnlockButton from "@/components/UnlockButton";
+import Photo from "@/components/Photo";
 
 const FLOW: StudentStatus[] = ["REGISTERED", "PAID", "UNDER_REVIEW", "REPORT_READY", "COUNSELLED"];
 
 function Overview({ s }: { s: Student }) {
   const { chart, analysis: a } = useChart(s);
-  const welcome = useSearchParams().get("welcome");
+  const params = useSearchParams();
+  const welcome = params.get("welcome");
+  const savedMsg = params.get("saved");
   const router = useRouter();
   const plan = planOf(s.plan);
   const paid = isPaid(s.plan);
@@ -25,6 +28,7 @@ function Overview({ s }: { s: Student }) {
 
   return (
     <div className="container section-sm">
+      {savedMsg && <div className="alert alert-success">✅ <b>Changes saved.</b> The Kundali and report have been updated with the new details.</div>}
       {welcome && (
         <div className="alert alert-success">
           🎉 <b>{s.fullName}'s profile is created!</b> The Kundali is ready below. Unlock the full 22-page report to get the astrologer's case study and counselling.
@@ -86,7 +90,7 @@ function Overview({ s }: { s: Student }) {
             <div className="photo-grid">
               {PHOTO_FIELDS.map((p) => (
                 <figure key={p.key}>
-                  {s.photos[p.key] ? <img src={s.photos[p.key]} alt={p.label} /> : <div className="upload-tile" style={{ minHeight: 150 }}>Missing</div>}
+                  <Photo photo={s.photos[p.key]} alt={p.label} fallback={<div className="upload-tile" style={{ minHeight: 150 }}>Missing</div>} />
                   <figcaption>{p.label}</figcaption>
                 </figure>
               ))}
@@ -132,7 +136,10 @@ function Overview({ s }: { s: Student }) {
           <SessionBox s={s} />
 
           <div className="card">
-            <h3>Details given</h3>
+            <div className="flex between">
+              <h3 className="mb-0">Details given</h3>
+              <Link href={`/students/${s.id}/edit`} className="btn btn-outline btn-sm">✏️ Edit details</Link>
+            </div>
             <dl className="kv small">
               <dt>Birth time</dt><dd>{s.birthTimeAccuracy === "UNKNOWN" ? "Not known" : `${s.timeOfBirth} (${s.birthTimeAccuracy.toLowerCase()})`}</dd>
               <dt>School</dt><dd>{s.schoolName || "—"}</dd>
@@ -143,7 +150,7 @@ function Overview({ s }: { s: Student }) {
             <button
               className="btn btn-outline btn-sm mt-2"
               style={{ color: "var(--red)" }}
-              onClick={() => { if (confirm(`Delete ${s.fullName}'s profile permanently?`)) { deleteStudent(s.id); router.push("/dashboard"); } }}
+              onClick={() => { if (confirm(`Delete ${s.fullName}'s profile permanently? This also deletes the photos, questions and meeting bookings.`)) { deleteStudent(s.id); router.push("/dashboard"); } }}
             >
               Delete profile
             </button>

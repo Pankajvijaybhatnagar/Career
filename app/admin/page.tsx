@@ -4,6 +4,7 @@ import Link from "next/link";
 import { RequireAuth } from "@/components/Guard";
 import { STATUS_LABEL, ageOf, formatSlot, useDB, type StudentStatus } from "@/lib/store";
 import { PLANS, formatINR, isPaid } from "@/lib/plans";
+import Photo from "@/components/Photo";
 
 export default function AdminPage() {
   const { db } = useDB();
@@ -100,7 +101,7 @@ export default function AdminPage() {
                             <tr key={s.id}>
                               <td>
                                 <div className="flex">
-                                  {s.photos.facePhoto ? <img src={s.photos.facePhoto} alt="" className="student-photo" style={{ width: 40, height: 40, borderRadius: 10 }} /> : <div className="student-photo" style={{ width: 40, height: 40, fontSize: "1.1rem" }}>🧒</div>}
+                                  <Photo photo={s.photos.facePhoto} className="student-photo" style={{ width: 40, height: 40, borderRadius: 10 }} fallback={<div className="student-photo" style={{ width: 40, height: 40, fontSize: "1.1rem" }}>🧒</div>} />
                                   <div><b>{s.fullName}</b><div className="small muted">{s.currentClass} · {ageOf(s.dateOfBirth)} yrs</div></div>
                                 </div>
                               </td>

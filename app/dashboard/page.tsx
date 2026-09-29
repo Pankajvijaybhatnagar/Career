@@ -4,6 +4,7 @@ import { RequireAuth } from "@/components/Guard";
 import { STATUS_LABEL, ageOf, useDB } from "@/lib/store";
 import { isPaid, planOf } from "@/lib/plans";
 import UnlockButton from "@/components/UnlockButton";
+import Photo from "@/components/Photo";
 
 export default function DashboardPage() {
   const { db } = useDB();
@@ -48,7 +49,7 @@ export default function DashboardPage() {
                     return (
                       <div key={s.id} className="card card-hover student-card">
                         <div className="top">
-                          {s.photos.facePhoto ? <img src={s.photos.facePhoto} alt="" className="student-photo" /> : <div className="student-photo">🧒</div>}
+                          <Photo photo={s.photos.facePhoto} className="student-photo" fallback={<div className="student-photo">🧒</div>} />
                           <div>
                             <h3 className="mb-0">{s.fullName}</h3>
                             <div className="small muted">{s.currentClass} · Age {ageOf(s.dateOfBirth)}</div>

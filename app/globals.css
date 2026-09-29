@@ -419,3 +419,10 @@ small, .small { font-size: 0.85rem; }
 .meet-time b { font-family: var(--font-display); font-size: 1.5rem; color: #0b6b4f; }
 .meet-time span { font-size: .88rem; color: #2f7a5f; }
 .meet-banner { display: flex; gap: 14px; align-items: center; }
+
+.dob-select { display: grid; grid-template-columns: 0.8fr 1.4fr 1fr; gap: 8px; }
+.dob-select .select { padding: 12px 8px; }
+
+.stepper button.s { background: none; border: 0; padding: 0; font: inherit; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+.stepper button.s:disabled { cursor: default; opacity: .7; }
+.stepper button.s.active { color: var(--ink); }

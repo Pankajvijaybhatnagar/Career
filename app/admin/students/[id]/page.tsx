@@ -12,6 +12,7 @@ import {
 import { useChart } from "@/lib/useChart";
 import { PLANS } from "@/lib/plans";
 import { PRASHNA_CATEGORIES } from "@/lib/astro/prashna";
+import Photo from "@/components/Photo";
 
 const STREAMS = ["", "Science (PCM)", "Science (PCB)", "Science (PCMB)", "Commerce", "Commerce with Maths", "Humanities / Arts"];
 
@@ -44,6 +45,7 @@ function Review({ s, parent, me }: { s: Student; parent?: User; me: User }) {
           </div>
           <div className="flex flex-wrap">
             <span className="badge badge-premium">{PLANS[s.plan].name}</span>
+            <Link href={`/students/${s.id}/edit`} className="btn btn-ghost-light btn-sm">✏️ Edit details</Link>
             <Link href={`/students/${s.id}/report`} className="btn btn-ghost-light btn-sm">View report as parent</Link>
           </div>
         </div>
@@ -57,7 +59,7 @@ function Review({ s, parent, me }: { s: Student; parent?: User; me: User }) {
               <div className="photo-grid">
                 {PHOTO_FIELDS.map((p) => (
                   <figure key={p.key} onClick={() => s.photos[p.key] && setZoom(s.photos[p.key]!)} style={{ cursor: "zoom-in" }}>
-                    {s.photos[p.key] ? <img src={s.photos[p.key]} alt={p.label} /> : <div className="upload-tile" style={{ minHeight: 150 }}>Missing</div>}
+                    <Photo photo={s.photos[p.key]} alt={p.label} fallback={<div className="upload-tile" style={{ minHeight: 150 }}>Missing</div>} />
                     <figcaption>{p.label}</figcaption>
                   </figure>
                 ))}
@@ -127,7 +129,7 @@ function Review({ s, parent, me }: { s: Student; parent?: User; me: User }) {
 
       {zoom && (
         <div onClick={() => setZoom(null)} style={{ position: "fixed", inset: 0, background: "rgba(10,5,40,.85)", zIndex: 100, display: "grid", placeItems: "center", padding: 20, cursor: "zoom-out" }}>
-          <img src={zoom} alt="" style={{ maxHeight: "90vh", maxWidth: "90vw", borderRadius: 12 }} />
+          <Photo photo={zoom} style={{ maxHeight: "90vh", maxWidth: "90vw", borderRadius: 12 }} />
         </div>
       )}
     </>

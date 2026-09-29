@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { RequireAuth } from "@/components/Guard";
+import DataManager from "@/components/DataManager";
 import { updateProfile, type User } from "@/lib/store";
 
 function ProfileForm({ user }: { user: User }) {
@@ -34,6 +35,9 @@ function ProfileForm({ user }: { user: User }) {
           <div className="field"><label>New password</label><input className="input" type="password" name="password" placeholder="Leave empty to keep the current one" /></div>
           <button className="btn btn-primary btn-block">Save changes</button>
         </form>
+      </div>
+      <div style={{ maxWidth: 820, margin: "0 auto 48px" }}>
+        <DataManager />
       </div>
     </div>
   );
